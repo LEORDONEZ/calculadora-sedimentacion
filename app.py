@@ -49,6 +49,7 @@ class SedimentadorAltaTasa:
         g = 9.81
         theta_rad = math.radians(theta_grados)
         
+        # Encabezado Memoria
         self.procedimientos.append("MEMORIA DE CÁLCULO DETALLADA")
         self.procedimientos.append("-" * 80)
 
@@ -57,18 +58,21 @@ class SedimentadorAltaTasa:
         Q_m3d = Q_ls * 86.4
         
         self.procedimientos.append("1. CONVERSIÓN DE CAUDAL")
-        self.procedimientos.append(f"   Q = {Q_m3d:.2f} m3/d ({Q_m3s:.5f} m3/s)")
+        self.procedimientos.append(f"   Q = {Q_ls} L/s / 1000 = {Q_m3s:.5f} m³/s")
+        self.procedimientos.append(f"   Q = {Q_ls} L/s * 86.4 = {Q_m3d:.2f} m³/d")
         self.procedimientos.append("")
 
         # 2. Área Superficial (As)
         As = Q_m3d / CS
         self.procedimientos.append("2. ÁREA SUPERFICIAL (As)")
-        self.procedimientos.append(f"   As = {Q_m3d:.2f} / {CS} = {As:.2f} m2")
+        self.procedimientos.append("   Fórmula: As = Q(m³/d) / Carga Superficial")
+        self.procedimientos.append(f"   As = {Q_m3d:.2f} / {CS} = {As:.2f} m²")
         self.procedimientos.append("")
         
         # 3. Longitud (Ls)
         Ls = As / B
-        self.procedimientos.append("3. LONGITUD (Ls)")
+        self.procedimientos.append("3. LONGITUD DEL SEDIMENTADOR (Ls)")
+        self.procedimientos.append("   Fórmula: Ls = As / B")
         self.procedimientos.append(f"   Ls = {As:.2f} / {B} = {Ls:.2f} m")
         self.procedimientos.append("")
 
@@ -78,28 +82,31 @@ class SedimentadorAltaTasa:
         Vo_cms = Vo_ms * 100
         
         self.procedimientos.append("4. VELOCIDAD ENTRE PLACAS (Vo)")
+        self.procedimientos.append("   Fórmula: Vo = Q / (As * sen(θ))")
+        self.procedimientos.append(f"   Vo = {Q_m3s:.5f} / ({As:.2f} * {sen_theta:.4f})")
         self.procedimientos.append(f"   Vo = {Vo_ms:.5f} m/s ({Vo_cms:.3f} cm/s)")
         self.procedimientos.append("")
 
         # 5. Reynolds (Re)
         Re = (Vo_ms * d) / nu
-        self.procedimientos.append("5. NÚMERO DE REYNOLDS (Re)")
-        self.procedimientos.append(f"   Re = ({Vo_ms:.5f} * {d}) / {nu:.2e} = {Re:.2f}")
+        self.procedimientos.append("5. NÚMERO DE REYNOLDS EN PLACAS (Re)")
+        self.procedimientos.append("   Fórmula: Re = (Vo * d) / viscosidad")
+        self.procedimientos.append(f"   Re = ({Vo_ms:.5f} * {d}) / {nu:.2e}")
+        self.procedimientos.append(f"   Re = {Re:.2f} (Adimensional)")
         self.procedimientos.append("")
 
-        # =======================================================
-        # 6. CORRECCIÓN APLICADA AQUÍ (Longitudes Relativas)
-        # =======================================================
-        # L_rel es la longitud relativa geométrica (adimensional)
+        # 6. Longitudes Relativas (L y L')
         L_rel = Ly / d
-        # L_prima es la longitud relativa de desarrollo de flujo (adimensional)
         L_prima = Re * 0.013 
         
         self.procedimientos.append("6. LONGITUDES RELATIVAS (L y L')")
-        self.procedimientos.append(f"   L (geométrica) = Ly/d = {Ly}/{d} = {L_rel:.2f}")
-        self.procedimientos.append(f"   L' (desarrollo) = Re * 0.013 = {L_prima:.3f}")
-        
-        # Lc también debe ser adimensional para la fórmula de Vs
+        self.procedimientos.append(f"   L (geométrica) = Ly/d = {Ly}/{d}")
+        self.procedimientos.append(f"   L = {L_rel:.2f} (Adimensional)")
+        self.procedimientos.append(f"   L' (desarrollo) = Re * 0.013 = {Re:.2f} * 0.013")
+        self.procedimientos.append(f"   L' = {L_prima:.3f} (Adimensional)")
+        self.procedimientos.append("")
+
+        # 7. Longitud Crítica (Lc)
         if L_prima > (L_rel / 2):
             Lc_rel = 2 * (L_rel - L_prima)
             condicion = "Como L' > L/2"
@@ -109,58 +116,95 @@ class SedimentadorAltaTasa:
             condicion = "Como L' <= L/2"
             formula_txt = "Lc = L - L'"
             
+        self.procedimientos.append("7. LONGITUD CRÍTICA RELATIVA (Lc)")
         self.procedimientos.append(f"   {condicion} -> Usamos: {formula_txt}")
-        self.procedimientos.append(f"   Lc (relativa) = {Lc_rel:.3f}")
+        self.procedimientos.append(f"   Lc = {Lc_rel:.3f} (Adimensional)")
         self.procedimientos.append("")
 
-        # 7. Velocidad Crítica (Vs)
-        # OJO: Aquí Lc debe ser el valor RELATIVO (adimensional) 
+        # 8. Velocidad Crítica (Vs)
         cos_theta = math.cos(theta_rad)
         denominador_vs = sen_theta + (Lc_rel * cos_theta)
         
         Vs_ms = Vo_ms / denominador_vs
         Vs_mdia = Vs_ms * 86400
         
-        self.procedimientos.append("7. VELOCIDAD CRÍTICA (Vs)")
-        self.procedimientos.append("   Fórmula: Vs = Vo / (sen(θ) + Lc_rel * cos(θ))")
-        self.procedimientos.append(f"   Denom = {sen_theta:.3f} + ({Lc_rel:.3f} * {cos_theta:.3f}) = {denominador_vs:.3f}")
+        self.procedimientos.append("8. VELOCIDAD CRÍTICA (Vs)")
+        self.procedimientos.append("   Fórmula: Vs = Vo / (sen(θ) + Lc * cos(θ))")
+        self.procedimientos.append(f"   Denominador = {sen_theta:.3f} + ({Lc_rel:.3f} * {cos_theta:.3f}) = {denominador_vs:.3f}")
         self.procedimientos.append(f"   Vs = {Vo_ms:.5f} / {denominador_vs:.3f}")
         self.procedimientos.append(f"   Vs = {Vs_ms:.6f} m/s ({Vs_mdia:.2f} m/d)")
         self.procedimientos.append("")
-        # =======================================================
 
-        # 8. Número de Placas (N)
+        # 9. Número de Placas (N)
         num_placas_exacto = (Ls * sen_theta + d) / (d + e)
         N_placas = int(num_placas_exacto)
         
-        self.procedimientos.append("8. NÚMERO DE PLACAS")
+        self.procedimientos.append("9. NÚMERO DE PLACAS")
+        self.procedimientos.append("   Fórmula: N = (Ls * sen(θ) + d) / (d + e)")
+        self.procedimientos.append(f"   N = ({Ls:.2f} * {sen_theta:.3f} + {d}) / ({d} + {e})")
         self.procedimientos.append(f"   N calculado: {num_placas_exacto:.2f} -> Adoptado: {N_placas}")
         self.procedimientos.append("")
 
-        # 9. Geometría Final
+        # 10. Geometría Final y Tiempos
         ht = (Ly * sen_theta) + 1.96 
         Vol = As * ht
-        Tret_min = (Vol / Q_m3s) / 60
-        Tce_seg = 1 / Vo_ms
         
-        self.procedimientos.append("9. GEOMETRÍA Y TIEMPOS")
-        self.procedimientos.append(f"   Altura Total (ht) = {ht:.2f} m")
-        self.procedimientos.append(f"   Tiempo Retención = {Tret_min:.2f} min")
+        self.procedimientos.append("10. GEOMETRÍA Y VOLUMEN")
+        self.procedimientos.append(f"   Altura Total (ht) = (Ly * sen(θ)) + 1.96 = {ht:.2f} m")
+        self.procedimientos.append(f"   Volumen (Vol) = As * ht = {As:.2f} * {ht:.2f} = {Vol:.2f} m³")
         self.procedimientos.append("")
 
-        # 10. Hidráulica Tanque
+        # Tiempos de Retención (Tce y Tret)
+        Tret_min = (Vol / Q_m3s) / 60
+        # Procedimiento Tce (Tiempo en celdas) 
+        # Tce = Longitud de placa / Vo ? O 1/Vo como usaste antes?
+        # Mantengo tu fórmula original: Tce = 1 / Vo
+        Tce_seg = 1 / Vo_ms
+        
+        self.procedimientos.append("11. TIEMPOS DE RETENCIÓN")
+        self.procedimientos.append("   a) Tiempo en Celdas (Tce)")
+        self.procedimientos.append("      Fórmula: Tce = 1 / Vo")
+        self.procedimientos.append(f"      Tce = 1 / {Vo_ms:.5f} = {Tce_seg:.2f} s")
+        self.procedimientos.append("   b) Tiempo Retención Tanque (Tret)")
+        self.procedimientos.append("      Fórmula: Tret = Vol / Q")
+        self.procedimientos.append(f"      Tret = {Vol:.2f} / {Q_m3s:.5f} = {Tret_min*60:.1f} s = {Tret_min:.2f} min")
+        self.procedimientos.append("")
+
+        # 12. HIDRÁULICA DEL TANQUE (Ax, Pm, Rh, Vf)
+        self.procedimientos.append("12. HIDRÁULICA DEL TANQUE (RH, Vf, Re, Fr)")
+        
+        # Área Transversal (Ax)
         Ax = B * ht
+        self.procedimientos.append("   a) Área Transversal (Ax)")
+        self.procedimientos.append("      Fórmula: Ax = Ancho * ht")
+        self.procedimientos.append(f"      Ax = {B} * {ht:.2f} = {Ax:.2f} m²")
+        
+        # Radio Hidráulico (Rh)
         Pm = B + 2*ht
         RH = Ax / Pm
+        self.procedimientos.append("   b) Radio Hidráulico (RH)")
+        self.procedimientos.append("      Perímetro Mojado (Pm) = B + 2*ht")
+        self.procedimientos.append(f"      Pm = {B} + 2*{ht:.2f} = {Pm:.2f} m")
+        self.procedimientos.append("      Fórmula: RH = Ax / Pm")
+        self.procedimientos.append(f"      RH = {Ax:.2f} / {Pm:.2f} = {RH:.4f} m")
+        
+        # Velocidad Horizontal (Vf)
         Vf = Q_m3s / Ax
+        self.procedimientos.append("   c) Velocidad Horizontal (Vf)")
+        self.procedimientos.append("      Fórmula: Vf = Q / Ax")
+        self.procedimientos.append(f"      Vf = {Q_m3s:.5f} / {Ax:.2f} = {Vf:.5f} m/s")
+
+        # Re y Fr Tanque
         Re_tanque = (Vf * RH) / nu
         Fr = (Vf**2) / (g * RH)
         
-        self.procedimientos.append("10. VERIFICACIÓN TANQUE")
-        self.procedimientos.append(f"   Reynolds Tanque = {Re_tanque:.0f}")
-        self.procedimientos.append(f"   Froude = {Fr:.2e}")
+        self.procedimientos.append("   d) Números de Reynolds y Froude (Tanque)")
+        self.procedimientos.append(f"      Re_tanque = (Vf * RH) / v = ({Vf:.5f}*{RH:.4f}) / {nu:.2e}")
+        self.procedimientos.append(f"      Re_tanque = {Re_tanque:.0f}")
+        self.procedimientos.append(f"      Fr = Vf² / (g * RH) = {Vf:.5f}² / (9.81 * {RH:.4f})")
+        self.procedimientos.append(f"      Fr = {Fr:.2e}")
 
-        # Resultados
+        # Resultados finales para acceso rápido
         self.calculos = {
             'As': As, 'Ls': Ls, 'Vo_cms': Vo_cms, 'Re': Re,
             'Lc_rel': Lc_rel, 'Vs_mdia': Vs_mdia, 'N_placas': N_placas,
@@ -323,7 +367,10 @@ def main():
         theta = st.slider("Ángulo (°)", 45, 70, 60)
         c1, c2 = st.columns(2)
         d = c1.number_input("Separación (m)", 0.01, 0.2, 0.06)
-        e = c2.number_input("Espesor (m)", 0.001, 0.05, 0.01)
+        
+        # --- CORRECCIÓN DE INPUT ESPESOR ---
+        e = c2.number_input("Espesor (m)", 0.001, 0.05, 0.01, format="%.3f", 
+                            help="Valores típicos: Fibrocemento 0.006-0.010m | Plástico/Lona 0.001-0.003m")
         
         st.sidebar.markdown("---")
         b = st.number_input("Ancho Tanque (m)", 1.0, 10.0, 2.5)
