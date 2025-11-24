@@ -1,6 +1,6 @@
 import streamlit as st
 
-# Configuración de la página principal
+# 1. Configuración Global
 st.set_page_config(
     page_title="Herramientas Ingenieria",
     page_icon="🏗️",
@@ -8,57 +8,33 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- BARRA LATERAL ---
-with st.sidebar:
-    st.title("Navegación")
-    st.info("Menú principal")
-    
-    # Navegación alternativa en sidebar
-    st.subheader("Módulos Disponibles")
-    if st.button("🌊 Diseño Sedimentador", use_container_width=True):
-        st.switch_page("pages/1_Sedimentacion.py")
-    if st.button("📈 Proyección Población", use_container_width=True):
-        st.switch_page("pages/2_Poblacion.py")
-    if st.button("1️⃣ Ejercicio Práctico 1", use_container_width=True):
-        st.switch_page("pages/3_Ejercicio_1.py")
+# 2. Definición de Páginas (El Mapa del Sitio)
 
-# --- CUERPO PRINCIPAL ---
-st.title("🏗️ Portafolio de Ingeniería Civil")
-st.markdown("---")
-st.markdown("### Selecciona el módulo de cálculo:")
+# -- Página de Inicio (Tu menú visual) --
+pg_inicio = st.Page("inicio.py", title="Inicio", icon="🏠", default=True)
 
-# --- BOTONES DE NAVEGACIÓN ---
-col1, col2 = st.columns(2)
+# -- Planeación --
+pg_proyecciones = st.Page("pages/1_Proyecciones/1_Proyecciones.py", title="Proyección Población", icon="📈")
+pg_caudal = st.Page("pages/2_Caudal/1_Calculos_Adicionales.py", title="Cálculo Caudal", icon="💧")
 
-with col1:
-    st.subheader("Hidráulica")
-    
-    # Opción 1: Usando st.link_button como alternativa
-    if st.button("DISEÑO SEDIMENTADOR 🌊", use_container_width=True):
-        st.switch_page("pages/1_Sedimentacion.py")
-    
-    st.caption("Cálculo, Planos y Memoria PDF.")
+# -- Potabilización --
+pg_aireador = st.Page("pages/3_Aireadores/1_Diseno_Aireador.py", title="Diseño Aireador", icon="🌊")
+pg_sedimentador = st.Page("pages/4_Sedimentacion/1_Sedimentacion.py", title="Diseño Sedimentador", icon="🧱")
+pg_filtracion = st.Page("pages/5_Filtracion/1_Filtracion.py", title="Diseño Filtración", icon="F")
 
-with col2:
-    st.subheader("Planeación")
-    
-    if st.button("PROYECCIÓN POBLACIÓN 📈", use_container_width=True):
-        st.switch_page("pages/2_Poblacion.py")
-    
-    st.caption("Módulo en construcción.")
+# -- Ejercicios (Ejemplos) --
+pg_ej_sed_2 = st.Page("pages/4_Sedimentacion/2_Ejercicio_2.py", title="Ejercicio Sedimentación 2", icon="2️⃣")
+pg_ej_sed_3 = st.Page("pages/4_Sedimentacion/3_Ejercicio_3.py", title="Ejercicio Sedimentación 3", icon="3️⃣")
 
-st.markdown("---")
 
-st.subheader("Ejercicios")
-c1, c2 = st.columns(2)
+# 3. Configuración del Menú de Navegación
+# Esto crea las secciones en la barra lateral automáticamente
+pg = st.navigation({
+    "Principal": [pg_inicio],
+    "Planeación y Demanda": [pg_proyecciones, pg_caudal],
+    "Potabilización": [pg_aireador, pg_sedimentador, pg_filtracion],
+    "Ejercicios Académicos": [pg_ej_sed_2, pg_ej_sed_3]
+})
 
-with c1:
-    if st.button("Ejercicio Práctico 1 - 1️⃣", use_container_width=True):
-        st.switch_page("pages/3_Ejercicio_1.py")
-
-st.markdown("---")
-st.write("Versión 1.1 - Nombres estandarizados")
-
-# Debug info (opcional, quitar en producción)
-with st.expander("ℹ️ Información de depuración"):
-    st.write("Verificando configuración de páginas...")
+# 4. Ejecutar la aplicación
+pg.run()
