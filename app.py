@@ -112,7 +112,7 @@ class SedimentadorAltaTasa:
         # 8. Velocidad Crítica (Vs)
         cos_theta = math.cos(theta_rad)
         denominador_vs = sen_theta + (Lc_rel * cos_theta)
-        Vs_ms = Vo_ms / denominador_vs
+        Vs_ms = Vo_cms / denominador_vs
         Vs_mdia = Vs_ms * 86400
         self.procedimientos.append("8. VELOCIDAD CRÍTICA (Vs)")
         self.procedimientos.append(f"   Vs = {Vs_ms:.6f} m/s ({Vs_mdia:.2f} m/d)")
