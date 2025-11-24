@@ -8,7 +8,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 2. Definición de Páginas
+# 2. Definición de Páginas - RUTAS CORREGIDAS
 
 # -- Página de Inicio --
 pg_inicio = st.Page("inicio.py", title="Inicio", icon="🏠", default=True)
@@ -17,13 +17,10 @@ pg_inicio = st.Page("inicio.py", title="Inicio", icon="🏠", default=True)
 pg_proyecciones = st.Page("pages/1_Proyecciones/1_proyecciones.py", title="Proyección Población", icon="📈")
 pg_caudal = st.Page("pages/2_Caudal/2_Calculos_Adicionales.py", title="Cálculo Caudal", icon="💧")
 
-# -- Potabilización --
-pg_aireador = st.Page("pages/3_Aireadores pages/3_Diseno_Aireador.py", title="Diseño Aireador", icon="🌊")
+# -- Potabilización - RUTAS CORREGIDAS --
+pg_aireador = st.Page("pages/3_Aireadores/3_Diseno_Aireador.py", title="Diseño Aireador", icon="🌊")  # <- CORREGIDO
 pg_sedimentador = st.Page("pages/4_Sedimentacion/1_Sedimentacion.py", title="Diseño Sedimentador", icon="🧱")
-
-# CORRECCIÓN AQUÍ: Cambié "F" por "🧪" (o puedes usar "🚿" o "🌪️")
 pg_filtracion = st.Page("pages/5_Filtracion/1_Filtracion.py", title="Diseño Filtración", icon="🧪")
-
 
 # 3. Configuración del Menú de Navegación
 pg = st.navigation({
