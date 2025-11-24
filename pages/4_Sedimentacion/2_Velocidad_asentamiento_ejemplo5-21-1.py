@@ -47,7 +47,7 @@ class CalculadorStokes:
         self.procedimientos.append("1. DATOS DEL PROBLEMA")
         self.procedimientos.append(f"   Diámetro de partícula: {D_um} μm = {D_m:.2e} m")
         self.procedimientos.append(f"   Densidad relativa (S_s): {S_s}")
-        self.procedimientos.append(f"   Temperaturas a evaluar: {temperaturas} °C")
+        self.procedimientos.append(f"   Temperaturas a evaluar: {', '.join(map(str, temperaturas))} °C")
         self.procedimientos.append("")
         
         # 2. Viscosidades cinemáticas (según Cuadro 5.4 del documento)
@@ -58,14 +58,28 @@ class CalculadorStokes:
             15: 1.139e-6,
             20: 1.003e-6,
             25: 0.893e-6,
-            30: 0.800e-6
+            30: 0.800e-6,
+            35: 0.727e-6,
+            40: 0.667e-6
         }
         
         self.procedimientos.append("2. VISCOSIDADES CINEMÁTICAS DEL AGUA")
-        self.procedimientos.append("   (Según Cuadro 5.4 del documento)")
+        self.procedimientos.append("   (Según Cuadro 5.4 del documento y valores extendidos)")
         for temp in temperaturas:
             if temp in viscosidades:
                 self.procedimientos.append(f"   ν({temp}°C) = {viscosidades[temp]:.3e} m²/s")
+            else:
+                # Interpolación lineal para temperaturas no listadas
+                temp_min = max(t for t in viscosidades.keys() if t <= temp)
+                temp_max = min(t for t in viscosidades.keys() if t >= temp)
+                if temp_min == temp_max:
+                    nu = viscosidades[temp_min]
+                else:
+                    # Interpolación lineal
+                    nu_min = viscosidades[temp_min]
+                    nu_max = viscosidades[temp_max]
+                    nu = nu_min + (nu_max - nu_min) * (temp - temp_min) / (temp_max - temp_min)
+                    self.procedimientos.append(f"   ν({temp}°C) = {nu:.3e} m²/s (interpolado)")
         self.procedimientos.append("")
         
         # 3. Fórmula de Stokes
@@ -89,30 +103,40 @@ class CalculadorStokes:
         for temp in temperaturas:
             if temp in viscosidades:
                 nu = viscosidades[temp]
-                
-                # Cálculo de velocidad
-                U_ms = (g * (S_s - 1) * (D_m ** 2)) / (18 * nu)
-                U_mms = U_ms * 1000  # Convertir a mm/s
-                
-                # Verificación del régimen (Número de Reynolds)
-                N_Re = (U_ms * D_m) / nu
-                
-                resultados_temp.append({
-                    'Temperatura (°C)': temp,
-                    'ν (m²/s)': nu,
-                    'U (m/s)': U_ms,
-                    'U (mm/s)': U_mms,
-                    'N_Re': N_Re,
-                    'Régimen': 'Laminar' if N_Re < 0.5 else 'Transición/Turbulento'
-                })
-                
-                self.procedimientos.append(f"   Para T = {temp}°C:")
-                self.procedimientos.append(f"     ν = {nu:.3e} m²/s")
-                self.procedimientos.append(f"     U = [9.81 × ({S_s}-1) × ({D_m:.2e})²] / (18 × {nu:.3e})")
-                self.procedimientos.append(f"     U = {U_ms:.6f} m/s = {U_mms:.3f} mm/s")
-                self.procedimientos.append(f"     N_Re = ({U_ms:.6f} × {D_m:.2e}) / {nu:.3e} = {N_Re:.6f}")
-                self.procedimientos.append(f"     Régimen: {N_Re:.6f} {'<' if N_Re < 0.5 else '>='} 0.5 → {resultados_temp[-1]['Régimen']}")
-                self.procedimientos.append("")
+            else:
+                # Interpolación para temperaturas no listadas
+                temp_min = max(t for t in viscosidades.keys() if t <= temp)
+                temp_max = min(t for t in viscosidades.keys() if t >= temp)
+                if temp_min == temp_max:
+                    nu = viscosidades[temp_min]
+                else:
+                    nu_min = viscosidades[temp_min]
+                    nu_max = viscosidades[temp_max]
+                    nu = nu_min + (nu_max - nu_min) * (temp - temp_min) / (temp_max - temp_min)
+            
+            # Cálculo de velocidad
+            U_ms = (g * (S_s - 1) * (D_m ** 2)) / (18 * nu)
+            U_mms = U_ms * 1000  # Convertir a mm/s
+            
+            # Verificación del régimen (Número de Reynolds)
+            N_Re = (U_ms * D_m) / nu
+            
+            resultados_temp.append({
+                'Temperatura (°C)': temp,
+                'ν (m²/s)': nu,
+                'U (m/s)': U_ms,
+                'U (mm/s)': U_mms,
+                'N_Re': N_Re,
+                'Régimen': 'Laminar' if N_Re < 0.5 else 'Transición/Turbulento'
+            })
+            
+            self.procedimientos.append(f"   Para T = {temp}°C:")
+            self.procedimientos.append(f"     ν = {nu:.3e} m²/s")
+            self.procedimientos.append(f"     U = [9.81 × ({S_s}-1) × ({D_m:.2e})²] / (18 × {nu:.3e})")
+            self.procedimientos.append(f"     U = {U_ms:.6f} m/s = {U_mms:.3f} mm/s")
+            self.procedimientos.append(f"     N_Re = ({U_ms:.6f} × {D_m:.2e}) / {nu:.3e} = {N_Re:.6f}")
+            self.procedimientos.append(f"     Régimen: {N_Re:.6f} {'<' if N_Re < 0.5 else '>='} 0.5 → {resultados_temp[-1]['Régimen']}")
+            self.procedimientos.append("")
         
         # 5. Resumen de resultados
         self.procedimientos.append("5. RESUMEN DE RESULTADOS")
@@ -135,8 +159,8 @@ class CalculadorStokes:
         # Verificaciones
         self.verificaciones = {
             'Todos los N_Re < 0.5 (Laminar)': all(df_resultados['N_Re'] < 0.5),
-            'Velocidades dentro de rango esperado': all(0.1 <= u <= 10 for u in df_resultados['U (mm/s)']),
-            'Temperaturas en rango válido': all(0 <= t <= 30 for t in temperaturas)
+            'Velocidades dentro de rango esperado': all(0.001 <= u <= 100 for u in df_resultados['U (mm/s)']),
+            'Temperaturas en rango válido (0-40°C)': all(0 <= t <= 40 for t in temperaturas)
         }
         
         return True
@@ -206,7 +230,7 @@ class CalculadorStokes:
         pdf.set_font("Arial", '', 10)
         pdf.cell(0, 6, f'Diámetro de partícula: {self.parametros["diametro_um"]} μm', 0, 1)
         pdf.cell(0, 6, f'Densidad relativa: {self.parametros["densidad_relativa"]}', 0, 1)
-        pdf.cell(0, 6, f'Temperaturas evaluadas: {self.parametros["temperaturas"]} °C', 0, 1)
+        pdf.cell(0, 6, f'Temperaturas evaluadas: {", ".join(map(str, self.parametros["temperaturas"]))} °C', 0, 1)
         pdf.ln(5)
         
         # Procedimiento de cálculo
@@ -308,29 +332,74 @@ def main():
             help="Densidad de partícula / Densidad del agua"
         )
         
-        st.subheader("Temperaturas a Evaluar")
+        st.subheader("Selección de Temperaturas")
         
-        temp_10 = st.checkbox("10°C", value=True)
-        temp_20 = st.checkbox("20°C", value=True)
-        temp_30 = st.checkbox("30°C", value=True)
+        # Selección del número de temperaturas
+        num_temperaturas = st.radio(
+            "Número de temperaturas a calcular:",
+            [1, 2, 3],
+            horizontal=True,
+            help="Seleccione cuántas temperaturas desea evaluar"
+        )
         
-        # Colectar temperaturas seleccionadas
-        temperaturas = []
-        if temp_10: temperaturas.append(10)
-        if temp_20: temperaturas.append(20)
-        if temp_30: temperaturas.append(30)
+        # Contenedores para las temperaturas
+        col1, col2, col3 = st.columns(3)
+        temperaturas_seleccionadas = []
+        
+        with col1:
+            if num_temperaturas >= 1:
+                temp1 = st.number_input(
+                    "Temperatura 1 (°C)",
+                    min_value=0,
+                    max_value=40,
+                    value=10,
+                    step=1,
+                    key="temp1"
+                )
+                temperaturas_seleccionadas.append(temp1)
+        
+        with col2:
+            if num_temperaturas >= 2:
+                temp2 = st.number_input(
+                    "Temperatura 2 (°C)",
+                    min_value=0,
+                    max_value=40,
+                    value=20,
+                    step=1,
+                    key="temp2"
+                )
+                temperaturas_seleccionadas.append(temp2)
+        
+        with col3:
+            if num_temperaturas >= 3:
+                temp3 = st.number_input(
+                    "Temperatura 3 (°C)",
+                    min_value=0,
+                    max_value=40,
+                    value=30,
+                    step=1,
+                    key="temp3"
+                )
+                temperaturas_seleccionadas.append(temp3)
+        
+        # Validación de temperaturas únicas
+        if len(temperaturas_seleccionadas) != len(set(temperaturas_seleccionadas)):
+            st.warning("⚠️ Las temperaturas deben ser diferentes")
         
         # Botón de cálculo
-        if st.form_submit_button("🚀 Calcular Velocidades"):
-            if not temperaturas:
+        calcular_disabled = (len(temperaturas_seleccionadas) != len(set(temperaturas_seleccionadas))) or (num_temperaturas != len(temperaturas_seleccionadas))
+        
+        if st.form_submit_button("🚀 Calcular Velocidades", disabled=calcular_disabled):
+            if not temperaturas_seleccionadas:
                 st.error("Seleccione al menos una temperatura")
             else:
                 parametros = {
                     'diametro_um': diametro_um,
                     'densidad_relativa': densidad_relativa,
-                    'temperaturas': temperaturas
+                    'temperaturas': temperaturas_seleccionadas
                 }
                 st.session_state.calculador.calcular(parametros)
+                st.rerun()
     
     # --- INFORMACIÓN TEÓRICA ---
     with st.sidebar.expander("📚 Información Teórica"):
@@ -349,13 +418,45 @@ def main():
         **Verificación del régimen:**
         - N_Re < 0.5: Flujo laminar (✓ Stokes válido)
         - N_Re ≥ 0.5: Otro régimen (✗ Stokes no aplicable)
+        
+        **Temperaturas disponibles:** 0°C a 40°C
         """)
+    
+    # --- EJEMPLOS RÁPIDOS ---
+    with st.sidebar.expander("🎯 Ejemplos Rápidos"):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("Problema 5.21.1"):
+                st.session_state.calculador.calcular({
+                    'diametro_um': 20.0,
+                    'densidad_relativa': 2.65,
+                    'temperaturas': [10, 20, 30]
+                })
+                st.rerun()
+        
+        with col2:
+            if st.button("Arena Fina"):
+                st.session_state.calculador.calcular({
+                    'diametro_um': 100.0,
+                    'densidad_relativa': 2.65,
+                    'temperaturas': [15, 25]
+                })
+                st.rerun()
     
     # --- RESULTADOS PRINCIPALES ---
     calculador = st.session_state.calculador
     
     if calculador.resultados:
         st.success("✅ Cálculos completados exitosamente")
+        
+        # Mostrar configuración actual
+        st.info(f"""
+        **Configuración actual:** 
+        - Diámetro: {calculador.parametros['diametro_um']} μm
+        - Densidad relativa: {calculador.parametros['densidad_relativa']}
+        - Temperaturas: {', '.join(map(str, calculador.parametros['temperaturas']))}°C
+        """)
         
         # Mostrar resultados en pestañas
         tab1, tab2, tab3, tab4 = st.tabs(["📈 Resultados", "📋 Procedimiento", "📊 Gráficas", "📥 Reporte"])
@@ -374,7 +475,7 @@ def main():
             
             # Resumen ejecutivo
             st.subheader("📊 Resumen Ejecutivo")
-            col1, col2, col3 = st.columns(3)
+            col1, col2, col3, col4 = st.columns(4)
             
             with col1:
                 st.metric("Diámetro partícula", f"{calculador.parametros['diametro_um']} μm")
@@ -383,8 +484,26 @@ def main():
                 st.metric("Densidad relativa", f"{calculador.parametros['densidad_relativa']}")
             
             with col3:
+                num_temps = len(calculador.parametros['temperaturas'])
+                st.metric("Temperaturas", f"{num_temps}")
+            
+            with col4:
                 regimen_valido = all(df['N_Re'] < 0.5)
                 st.metric("Régimen válido", "✓ Laminar" if regimen_valido else "✗ No laminar")
+            
+            # Análisis comparativo si hay más de una temperatura
+            if len(df) > 1:
+                st.subheader("📈 Análisis Comparativo")
+                min_vel = df['U (mm/s)'].min()
+                max_vel = df['U (mm/s)'].max()
+                incremento = (max_vel / min_vel - 1) * 100
+                
+                st.markdown(f"""
+                - **Rango de velocidades:** {min_vel:.3f} a {max_vel:.3f} mm/s
+                - **Incremento máximo:** {incremento:.1f}%
+                - **Temperatura más favorable:** {df.loc[df['U (mm/s)'].idxmax(), 'Temperatura (°C)']}°C
+                - **Temperatura menos favorable:** {df.loc[df['U (mm/s)'].idxmin(), 'Temperatura (°C)']}°C
+                """)
             
             # Verificaciones
             st.subheader("✅ Verificaciones")
@@ -408,13 +527,22 @@ def main():
                 st.subheader("📈 Análisis de Resultados")
                 df = calculador.resultados['dataframe']
                 
-                st.markdown(f"""
-                **Observaciones:**
-                - La velocidad de sedimentación **aumenta con la temperatura** debido a la disminución de la viscosidad
-                - El incremento de {df['Temperatura (°C)'].min()}°C a {df['Temperatura (°C)'].max()}°C produce un aumento de **{df['U (mm/s)'].max()/df['U (mm/s)'].min():.2f}x** en la velocidad
-                - Todos los números de Reynolds están **{'por debajo' if all(df['N_Re'] < 0.5) else 'por encima'}** del límite de 0.5
-                - La **Ley de Stokes es {'aplicable' if all(df['N_Re'] < 0.5) else 'no aplicable'}** para estas condiciones
-                """)
+                if len(df) > 1:
+                    st.markdown(f"""
+                    **Observaciones:**
+                    - La velocidad de sedimentación **aumenta con la temperatura** debido a la disminución de la viscosidad
+                    - El incremento de {df['Temperatura (°C)'].min()}°C a {df['Temperatura (°C)'].max()}°C produce un aumento de **{df['U (mm/s)'].max()/df['U (mm/s)'].min():.2f}x** en la velocidad
+                    - Todos los números de Reynolds están **{'por debajo' if all(df['N_Re'] < 0.5) else 'por encima'}** del límite de 0.5
+                    - La **Ley de Stokes es {'aplicable' if all(df['N_Re'] < 0.5) else 'no aplicable'}** para estas condiciones
+                    """)
+                else:
+                    st.markdown(f"""
+                    **Observaciones para {df['Temperatura (°C)'].iloc[0]}°C:**
+                    - Velocidad de sedimentación: **{df['U (mm/s)'].iloc[0]:.3f} mm/s**
+                    - Número de Reynolds: **{df['N_Re'].iloc[0]:.6f}**
+                    - Régimen: **{df['Régimen'].iloc[0]}**
+                    - Ley de Stokes: **{'Aplicable' if df['N_Re'].iloc[0] < 0.5 else 'No aplicable'}**
+                    """)
         
         with tab4:
             st.subheader("📥 Generar Reporte PDF")
@@ -442,29 +570,24 @@ def main():
         1. **Configure los parámetros** en la barra lateral:
            - Diámetro de la partícula (μm)
            - Densidad relativa (S_s)
-           - Temperaturas a evaluar
+           - Número de temperaturas (1, 2 o 3)
+           - Valores específicos de temperatura (°C)
         
         2. **Haga clic en "Calcular Velocidades"** para ejecutar los cálculos
         
         3. **Revise los resultados** en las diferentes pestañas:
-           - 📈 Resultados: Tabla resumen
-           - 📋 Procedimiento: Cálculos detallados
+           - 📈 Resultados: Tabla resumen y análisis
+           - 📋 Procedimiento: Cálculos detallados paso a paso
            - 📊 Gráficas: Visualización de resultados
            - 📥 Reporte: Descarga en PDF
         
-        ### 📚 Problema 5.21.1 Original
-        Calcular la velocidad de asentamiento de una partícula de arena de 20 μm de diámetro, 
-        de densidad relativa igual a 2.65, en agua a 10°C, 20°C y 30°C, respectivamente.
+        ### 🎯 Características:
+        - **Flexibilidad total** en selección de temperaturas
+        - **Validación automática** del régimen de flujo
+        - **Interpolación** para temperaturas no listadas
+        - **Análisis comparativo** entre temperaturas
+        - **Reporte profesional** descargable
         """)
-        
-        # Ejemplo de configuración rápida
-        if st.button("🎯 Cargar Problema 5.21.1 Original"):
-            st.session_state.calculador.calcular({
-                'diametro_um': 20.0,
-                'densidad_relativa': 2.65,
-                'temperaturas': [10, 20, 30]
-            })
-            st.rerun()
 
 if __name__ == "__main__":
     main()
