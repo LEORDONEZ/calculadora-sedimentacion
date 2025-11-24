@@ -49,30 +49,25 @@ class SedimentadorAltaTasa:
         g = 9.81
         theta_rad = math.radians(theta_grados)
         
-        # Encabezado Memoria
         self.procedimientos.append("MEMORIA DE CÁLCULO DETALLADA")
         self.procedimientos.append("-" * 80)
 
         # 1. Conversión de Caudal
         Q_m3s = Q_ls / 1000
         Q_m3d = Q_ls * 86.4
-        
         self.procedimientos.append("1. CONVERSIÓN DE CAUDAL")
-        self.procedimientos.append(f"   Q = {Q_ls} L/s / 1000 = {Q_m3s:.5f} m³/s")
-        self.procedimientos.append(f"   Q = {Q_ls} L/s * 86.4 = {Q_m3d:.2f} m³/d")
+        self.procedimientos.append(f"   Q = {Q_m3d:.2f} m3/d ({Q_m3s:.5f} m3/s)")
         self.procedimientos.append("")
 
         # 2. Área Superficial (As)
         As = Q_m3d / CS
         self.procedimientos.append("2. ÁREA SUPERFICIAL (As)")
-        self.procedimientos.append("   Fórmula: As = Q(m³/d) / Carga Superficial")
-        self.procedimientos.append(f"   As = {Q_m3d:.2f} / {CS} = {As:.2f} m²")
+        self.procedimientos.append(f"   As = {Q_m3d:.2f} / {CS} = {As:.2f} m2")
         self.procedimientos.append("")
         
         # 3. Longitud (Ls)
         Ls = As / B
         self.procedimientos.append("3. LONGITUD DEL SEDIMENTADOR (Ls)")
-        self.procedimientos.append("   Fórmula: Ls = As / B")
         self.procedimientos.append(f"   Ls = {As:.2f} / {B} = {Ls:.2f} m")
         self.procedimientos.append("")
 
@@ -80,17 +75,13 @@ class SedimentadorAltaTasa:
         sen_theta = math.sin(theta_rad)
         Vo_ms = Q_m3s / (As * sen_theta)
         Vo_cms = Vo_ms * 100
-        
         self.procedimientos.append("4. VELOCIDAD ENTRE PLACAS (Vo)")
-        self.procedimientos.append("   Fórmula: Vo = Q / (As * sen(θ))")
-        self.procedimientos.append(f"   Vo = {Q_m3s:.5f} / ({As:.2f} * {sen_theta:.4f})")
         self.procedimientos.append(f"   Vo = {Vo_ms:.5f} m/s ({Vo_cms:.3f} cm/s)")
         self.procedimientos.append("")
 
         # 5. Reynolds (Re)
         Re = (Vo_ms * d) / nu
         self.procedimientos.append("5. NÚMERO DE REYNOLDS EN PLACAS (Re)")
-        self.procedimientos.append("   Fórmula: Re = (Vo * d) / viscosidad")
         self.procedimientos.append(f"   Re = ({Vo_ms:.5f} * {d}) / {nu:.2e}")
         self.procedimientos.append(f"   Re = {Re:.2f} (Adimensional)")
         self.procedimientos.append("")
@@ -98,11 +89,8 @@ class SedimentadorAltaTasa:
         # 6. Longitudes Relativas (L y L')
         L_rel = Ly / d
         L_prima = Re * 0.013 
-        
         self.procedimientos.append("6. LONGITUDES RELATIVAS (L y L')")
-        self.procedimientos.append(f"   L (geométrica) = Ly/d = {Ly}/{d}")
         self.procedimientos.append(f"   L = {L_rel:.2f} (Adimensional)")
-        self.procedimientos.append(f"   L' (desarrollo) = Re * 0.013 = {Re:.2f} * 0.013")
         self.procedimientos.append(f"   L' = {L_prima:.3f} (Adimensional)")
         self.procedimientos.append("")
 
@@ -124,87 +112,52 @@ class SedimentadorAltaTasa:
         # 8. Velocidad Crítica (Vs)
         cos_theta = math.cos(theta_rad)
         denominador_vs = sen_theta + (Lc_rel * cos_theta)
-        
         Vs_ms = Vo_ms / denominador_vs
         Vs_mdia = Vs_ms * 86400
-        
         self.procedimientos.append("8. VELOCIDAD CRÍTICA (Vs)")
-        self.procedimientos.append("   Fórmula: Vs = Vo / (sen(θ) + Lc * cos(θ))")
-        self.procedimientos.append(f"   Denominador = {sen_theta:.3f} + ({Lc_rel:.3f} * {cos_theta:.3f}) = {denominador_vs:.3f}")
-        self.procedimientos.append(f"   Vs = {Vo_ms:.5f} / {denominador_vs:.3f}")
         self.procedimientos.append(f"   Vs = {Vs_ms:.6f} m/s ({Vs_mdia:.2f} m/d)")
         self.procedimientos.append("")
 
         # 9. Número de Placas (N)
         num_placas_exacto = (Ls * sen_theta + d) / (d + e)
         N_placas = int(num_placas_exacto)
-        
         self.procedimientos.append("9. NÚMERO DE PLACAS")
-        self.procedimientos.append("   Fórmula: N = (Ls * sen(θ) + d) / (d + e)")
-        self.procedimientos.append(f"   N = ({Ls:.2f} * {sen_theta:.3f} + {d}) / ({d} + {e})")
         self.procedimientos.append(f"   N calculado: {num_placas_exacto:.2f} -> Adoptado: {N_placas}")
         self.procedimientos.append("")
 
         # 10. Geometría Final y Tiempos
         ht = (Ly * sen_theta) + 1.96 
         Vol = As * ht
-        
         self.procedimientos.append("10. GEOMETRÍA Y VOLUMEN")
-        self.procedimientos.append(f"   Altura Total (ht) = (Ly * sen(θ)) + 1.96 = {ht:.2f} m")
-        self.procedimientos.append(f"   Volumen (Vol) = As * ht = {As:.2f} * {ht:.2f} = {Vol:.2f} m³")
+        self.procedimientos.append(f"   Altura Total (ht) = {ht:.2f} m")
+        self.procedimientos.append(f"   Volumen (Vol) = {Vol:.2f} m³")
         self.procedimientos.append("")
 
-        # Tiempos de Retención (Tce y Tret)
+        # Tiempos de Retención
         Tret_min = (Vol / Q_m3s) / 60
-        # Procedimiento Tce (Tiempo en celdas) 
-        # Tce = Longitud de placa / Vo ? O 1/Vo como usaste antes?
-        # Mantengo tu fórmula original: Tce = L / Vo
-        Tce_seg = Ly / Vo_ms
-        
+        Tce_seg = 1 / Vo_ms
         self.procedimientos.append("11. TIEMPOS DE RETENCIÓN")
-        self.procedimientos.append("   a) Tiempo en Celdas (Tce)")
-        self.procedimientos.append("      Fórmula: Tce = 1 / Vo")
-        self.procedimientos.append(f"      Tce = 1 / {Vo_ms:.5f} = {Tce_seg:.2f} s")
-        self.procedimientos.append("   b) Tiempo Retención Tanque (Tret)")
-        self.procedimientos.append("      Fórmula: Tret = Vol / Q")
-        self.procedimientos.append(f"      Tret = {Vol:.2f} / {Q_m3s:.5f} = {Tret_min*60:.1f} s = {Tret_min:.2f} min")
+        self.procedimientos.append(f"   Tce = {Tce_seg:.2f} s")
+        self.procedimientos.append(f"   Tret = {Tret_min:.2f} min")
         self.procedimientos.append("")
 
-        # 12. HIDRÁULICA DEL TANQUE (Ax, Pm, Rh, Vf)
-        self.procedimientos.append("12. HIDRÁULICA DEL TANQUE (RH, Vf, Re, Fr)")
-        
-        # Área Transversal (Ax)
+        # 12. HIDRÁULICA DEL TANQUE
         Ax = B * ht
-        self.procedimientos.append("   a) Área Transversal (Ax)")
-        self.procedimientos.append("      Fórmula: Ax = Ancho * ht")
-        self.procedimientos.append(f"      Ax = {B} * {ht:.2f} = {Ax:.2f} m²")
-        
-        # Radio Hidráulico (Rh)
         Pm = B + 2*ht
         RH = Ax / Pm
-        self.procedimientos.append("   b) Radio Hidráulico (RH)")
-        self.procedimientos.append("      Perímetro Mojado (Pm) = B + 2*ht")
-        self.procedimientos.append(f"      Pm = {B} + 2*{ht:.2f} = {Pm:.2f} m")
-        self.procedimientos.append("      Fórmula: RH = Ax / Pm")
-        self.procedimientos.append(f"      RH = {Ax:.2f} / {Pm:.2f} = {RH:.4f} m")
-        
-        # Velocidad Horizontal (Vf)
         Vf = Q_m3s / Ax
-        self.procedimientos.append("   c) Velocidad Horizontal (Vf)")
-        self.procedimientos.append("      Fórmula: Vf = Q / Ax")
-        self.procedimientos.append(f"      Vf = {Q_m3s:.5f} / {Ax:.2f} = {Vf:.5f} m/s")
-
-        # Re y Fr Tanque
         Re_tanque = (Vf * RH) / nu
         Fr = (Vf**2) / (g * RH)
         
-        self.procedimientos.append("   d) Números de Reynolds y Froude (Tanque)")
-        self.procedimientos.append(f"      Re_tanque = (Vf * RH) / v = ({Vf:.5f}*{RH:.4f}) / {nu:.2e}")
-        self.procedimientos.append(f"      Re_tanque = {Re_tanque:.0f}")
-        self.procedimientos.append(f"      Fr = Vf² / (g * RH) = {Vf:.5f}² / (9.81 * {RH:.4f})")
-        self.procedimientos.append(f"      Fr = {Fr:.2e}")
+        self.procedimientos.append("12. HIDRÁULICA DEL TANQUE")
+        self.procedimientos.append(f"   Área Transversal (Ax) = {Ax:.2f} m²")
+        self.procedimientos.append(f"   Perímetro Mojado (Pm) = {Pm:.2f} m")
+        self.procedimientos.append(f"   Radio Hidráulico (RH) = {RH:.4f} m")
+        self.procedimientos.append(f"   Velocidad Horizontal (Vf) = {Vf:.5f} m/s")
+        self.procedimientos.append(f"   Re Tanque = {Re_tanque:.0f}")
+        self.procedimientos.append(f"   Froude = {Fr:.2e}")
 
-        # Resultados finales para acceso rápido
+        # Resultados finales
         self.calculos = {
             'As': As, 'Ls': Ls, 'Vo_cms': Vo_cms, 'Re': Re,
             'Lc_rel': Lc_rel, 'Vs_mdia': Vs_mdia, 'N_placas': N_placas,
@@ -212,7 +165,6 @@ class SedimentadorAltaTasa:
             'Re_tanque': Re_tanque, 'Fr': Fr, 'espacio_paneles': espacio_paneles
         }
         
-        # Verificaciones
         self.verificaciones = {
             'Vo < 1 cm/s': Vo_cms < 1.0,
             'Re < 500': Re < 500,
@@ -222,63 +174,116 @@ class SedimentadorAltaTasa:
         }
         return True
 
+    def _dibujar_cota(self, ax, x1, y1, x2, y2, texto, color='black', offset_label=0):
+        """Función auxiliar para dibujar cotas tipo ingeniería"""
+        # Línea principal
+        ax.annotate('', xy=(x1, y1), xytext=(x2, y2),
+                    arrowprops=dict(arrowstyle='<->', color=color, lw=1.0))
+        # Texto centrado
+        xm, ym = (x1 + x2) / 2, (y1 + y2) / 2
+        
+        # Ajuste para que el texto no pise la línea
+        if x1 == x2: # Cota vertical
+            angle = 90
+            offset_x = -0.3 if offset_label == 0 else offset_label
+            offset_y = 0
+            va = 'center'
+            ha = 'right'
+        else: # Cota horizontal
+            angle = 0
+            offset_x = 0
+            offset_y = 0.2 if offset_label == 0 else offset_label
+            va = 'bottom'
+            ha = 'center'
+
+        ax.text(xm + offset_x, ym + offset_y, texto, 
+                color=color, ha=ha, va=va, rotation=angle, fontsize=9, fontweight='bold',
+                bbox=dict(boxstyle="round,pad=0.1", fc="white", ec="none", alpha=0.8))
+
     def generar_grafica(self):
-        ancho = self.parametros['ancho_sedimentacion']
-        longitud = self.calculos['Ls']
-        espacio = self.calculos['espacio_paneles']
+        B = self.parametros['ancho_sedimentacion']
+        Ls = self.calculos['Ls']
+        E = self.calculos['espacio_paneles']
         ht = self.calculos['ht']
         theta = self.parametros['angulo_grados']
         Ly = self.parametros['lado_y']
         N_placas = self.calculos['N_placas']
         
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 7))
+        # Aumentar tamaño para que quepan las cotas
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(18, 8))
         
-        # VISTA PLANTA
-        ax1.set_xlim(0, longitud + espacio + 1)
-        ax1.set_ylim(0, ancho + 1)
-        ax1.set_title('VISTA PLANTA', fontweight='bold')
-        ax1.set_xlabel('Longitud (m)')
-        ax1.set_ylabel('Ancho (m)')
+        # ================= VISTA PLANTA =================
+        ax1.set_title('VISTA PLANTA (COTAS EN METROS)', fontweight='bold', pad=20)
         
-        rect_entrada = patches.Rectangle((0,0), espacio, ancho, facecolor='#ff9999', alpha=0.3)
-        rect_placas = patches.Rectangle((espacio,0), longitud, ancho, facecolor='#99ccff', alpha=0.3)
+        # Dibujos
+        rect_entrada = patches.Rectangle((0,0), E, B, facecolor='#ff9999', alpha=0.3, edgecolor='red')
+        rect_placas = patches.Rectangle((E,0), Ls, B, facecolor='#99ccff', alpha=0.3, edgecolor='blue')
         ax1.add_patch(rect_entrada)
         ax1.add_patch(rect_placas)
         
-        ax1.text(espacio + longitud/2, ancho/2, 
-                 f"ZONA DE SEDIMENTACIÓN\nL = {longitud:.2f} m\n\nN = {N_placas} PLACAS", 
-                 ha='center', va='center', fontweight='bold', fontsize=11,
-                 bbox=dict(boxstyle="round,pad=0.5", fc="white", ec="blue", alpha=0.8))
-        ax1.grid(True, linestyle='--', alpha=0.3)
-
-        # VISTA PERFIL
-        ax2.set_xlim(0, longitud + espacio + 1)
-        ax2.set_ylim(0, ht + 1)
-        ax2.set_title('VISTA PERFIL (CORTE)', fontweight='bold')
-        ax2.set_xlabel('Longitud (m)')
-        ax2.set_ylabel('Altura (m)')
+        # Cotas Planta
+        # Ancho B (Izquierda)
+        self._dibujar_cota(ax1, -0.5, 0, -0.5, B, f"B = {B:.2f} m")
         
-        tanque = patches.Rectangle((espacio, 0), longitud, ht, facecolor='#f0f0f0', edgecolor='black')
+        # Longitud Entrada (Arriba)
+        self._dibujar_cota(ax1, 0, B+0.5, E, B+0.5, f"E={E}m")
+        
+        # Longitud Sedimentador (Arriba)
+        self._dibujar_cota(ax1, E, B+0.5, E+Ls, B+0.5, f"Ls = {Ls:.2f} m")
+        
+        # Longitud Total (Abajo)
+        self._dibujar_cota(ax1, 0, -0.8, E+Ls, -0.8, f"L Total = {E+Ls:.2f} m")
+
+        # Texto interno
+        ax1.text(E/2, B/2, "ENTRADA", ha='center', va='center', fontsize=8)
+        ax1.text(E + Ls/2, B/2, f"ZONA PLACAS\nN={N_placas}", ha='center', va='center', fontsize=10, fontweight='bold')
+
+        # Configuración ejes
+        ax1.set_xlim(-1.5, E+Ls+1)
+        ax1.set_ylim(-1.5, B+1.5)
+        ax1.axis('off') # Ocultar ejes coordenados feos, dejar solo dibujo
+
+        # ================= VISTA PERFIL =================
+        ax2.set_title('VISTA PERFIL (COTAS EN METROS)', fontweight='bold', pad=20)
+        
+        # Tanque
+        tanque = patches.Rectangle((E, 0), Ls, ht, facecolor='#f0f0f0', edgecolor='black', linewidth=1.5)
         ax2.add_patch(tanque)
         
+        # Placas (Representación visual)
         theta_rad = math.radians(theta)
         dx = Ly * math.cos(theta_rad)
         dy = Ly * math.sin(theta_rad)
         base_h = 1.96
         
-        step = longitud / 15 
-        for i in np.arange(0, longitud, step):
-            x_start = espacio + i
-            if x_start + dx < espacio + longitud:
-                ax2.plot([x_start, x_start + dx], [base_h, base_h + dy], 'b-', alpha=0.6)
+        # Dibujar placas
+        step = Ls / 12
+        for i in np.arange(0, Ls, step):
+            x_start = E + i
+            if x_start + dx < E + Ls:
+                ax2.plot([x_start, x_start + dx], [base_h, base_h + dy], 'b-', alpha=0.5)
         
-        ax2.axhline(y=base_h, color='r', linestyle=':', label='Nivel Lodos')
-        ax2.text(espacio + longitud + 0.2, ht/2, f"Ht={ht:.2f}m", color='black', fontweight='bold')
-        ax2.text(espacio + longitud/2, base_h + dy + 0.5, 
-                 f"Detalle: {N_placas} Placas a {theta}°", 
-                 ha='center', va='bottom', color='blue', fontweight='bold', fontsize=10)
-        ax2.legend(loc='upper right')
-        ax2.grid(True, linestyle='--', alpha=0.3)
+        # Línea de lodos
+        ax2.plot([E, E+Ls], [base_h, base_h], 'r--', linewidth=1)
+        
+        # Cotas Perfil
+        # Altura Total (Derecha)
+        self._dibujar_cota(ax2, E+Ls+0.5, 0, E+Ls+0.5, ht, f"Ht = {ht:.2f} m")
+        
+        # Altura Lodos (Izquierda)
+        self._dibujar_cota(ax2, E-0.3, 0, E-0.3, base_h, f"Lodos = {base_h} m")
+        
+        # Altura Placas (Izquierda, arriba de lodos)
+        self._dibujar_cota(ax2, E-0.3, base_h, E-0.3, base_h+dy, f"H_placa = {dy:.2f} m")
+        
+        # Longitud Tanque (Abajo)
+        self._dibujar_cota(ax2, E, -0.5, E+Ls, -0.5, f"Ls = {Ls:.2f} m")
+
+        # Configuración ejes
+        ax2.set_xlim(E-1, E+Ls+1.5)
+        ax2.set_ylim(-1, ht+1)
+        ax2.axis('off')
+
         plt.tight_layout()
         
         with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp_file:
@@ -330,8 +335,9 @@ class SedimentadorAltaTasa:
         if self.grafica_path and os.path.exists(self.grafica_path):
             pdf.add_page()
             pdf.set_font("Arial", 'B', 12)
-            pdf.cell(0, 10, '4. ANEXO GRÁFICO', 0, 1, 'L')
-            pdf.image(self.grafica_path, x=10, y=30, w=190)
+            pdf.cell(0, 10, '4. ANEXO GRÁFICO (COTAS)', 0, 1, 'L')
+            # Ajustar imagen para que quepa en la hoja
+            pdf.image(self.grafica_path, x=5, y=30, w=200)
             
         with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
             pdf.output(tmp_file.name)
@@ -368,7 +374,6 @@ def main():
         c1, c2 = st.columns(2)
         d = c1.number_input("Separación (m)", 0.01, 0.2, 0.06)
         
-        # --- CORRECCIÓN DE INPUT ESPESOR ---
         e = c2.number_input("Espesor (m)", 0.001, 0.05, 0.01, format="%.3f", 
                             help="Valores típicos: Fibrocemento 0.006-0.010m | Plástico/Lona 0.001-0.003m")
         
@@ -393,10 +398,11 @@ def main():
         with t1:
             col1, col2, col3, col4 = st.columns(4)
             col1.metric("Placas", app.calculos['N_placas'])
-            col2.metric("Longitud", f"{app.calculos['Ls']:.2f} m")
+            col2.metric("Longitud (Ls)", f"{app.calculos['Ls']:.2f} m")
             col3.metric("Reynolds", f"{app.calculos['Re']:.0f}")
             col4.metric("Froude", f"{app.calculos['Fr']:.1e}")
             
+            # Mostrar gráfico grande
             st.pyplot(app.generar_grafica())
             
             st.subheader("Verificación")
