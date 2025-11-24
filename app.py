@@ -158,8 +158,8 @@ class SedimentadorAltaTasa:
         Tret_min = (Vol / Q_m3s) / 60
         # Procedimiento Tce (Tiempo en celdas) 
         # Tce = Longitud de placa / Vo ? O 1/Vo como usaste antes?
-        # Mantengo tu fórmula original: Tce = 1 / Vo
-        Tce_seg = 1 / Vo_ms
+        # Mantengo tu fórmula original: Tce = L / Vo
+        Tce_seg = Ly / Vo_ms
         
         self.procedimientos.append("11. TIEMPOS DE RETENCIÓN")
         self.procedimientos.append("   a) Tiempo en Celdas (Tce)")
