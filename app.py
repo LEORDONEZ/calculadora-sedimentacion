@@ -21,7 +21,7 @@ pg_caudal = st.Page("pages/2_Caudal/2_Calculos_Adicionales.py", title="Cálculo 
 # -- Sedimentación --
 paginas_sedimentacion = [
     st.Page("pages/4_Sedimentacion/0_Menu_Sedimentacion.py", title="Menú Sedimentación", icon="⏳"),
-    st.Page("pages/4_Sedimentacion/1_Sedimentacion.py", title="Sedimentador Alta Tasa", icon="💧"),
+    st.Page("pages/4_Sedimentacion/1_Sedimentacion.py", title="Sedimentador Alta Tasa", icon="👌"),
     st.Page("pages/4_Sedimentacion/2_Velocidad_asentamiento_ejemplo5-21-1.py", title="Velocidad Asentamiento", icon="📉"),
     st.Page("pages/4_Sedimentacion/3_Flujo_horizontal_5-21-2.py", title="Flujo Horizontal", icon="➡️")
 ]
@@ -55,7 +55,9 @@ ejercicios_libro = [
     ("3_Duplicar_Capacidad_5_15.py", "📈"),
     ("4_Remosion_Total_Solidos_5_16.py", "🧹"),
     ("5_Diseño_Sedimentador_Convencional_3a1.py","👌"),
-    ("6_Sedimentador_Flujo_Horizontal_5_19.py", "🏗️"),]
+    ("6_Sedimentador_Flujo_Horizontal_5_19.py", "🏗️"),
+    ("7_Repotenciacion_Placas_Inclinadas.py", "🏗️"),
+    ]
 
 for archivo, icono in ejercicios_libro:
     ruta = f"pages/5_Ejercicios_Libro/{archivo}"
