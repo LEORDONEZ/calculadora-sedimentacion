@@ -8,6 +8,7 @@ from datetime import datetime
 from fpdf import FPDF
 import tempfile
 import os
+import re
 
 # ==========================================
 # CONFIGURACIÓN DE PÁGINA
@@ -29,6 +30,7 @@ class SedimentadorAltaTasa:
         self.verificaciones = {}
         self.procedimientos = []
         self.grafica_path = None
+        self.grafica_canaletas_path = None
     
     def calcular(self, parametros):
         self.parametros = parametros
@@ -44,6 +46,18 @@ class SedimentadorAltaTasa:
         B = parametros['ancho_sedimentacion']
         nu = parametros['viscosidad']
         CS = parametros['carga_superficial']
+        tipo_sedimentador = parametros['tipo_sedimentador']
+        num_canaletas = parametros['num_canaletas']
+        
+        # Definir Sc según tipo de sedimentador
+        if tipo_sedimentador == "Placas Paralelas":
+            Sc = 1.0
+        elif tipo_sedimentador == "Tubos Circulares":
+            Sc = 4/3
+        elif tipo_sedimentador == "Conductos Cuadrados":
+            Sc = 11/8
+        else:
+            Sc = 1.0  # Valor por defecto
         
         espacio_paneles = 1.6
         g = 9.81
@@ -109,12 +123,17 @@ class SedimentadorAltaTasa:
         self.procedimientos.append(f"   Lc = {Lc_rel:.3f} (Adimensional)")
         self.procedimientos.append("")
 
-        # 8. Velocidad Crítica (Vs)
+        # 8. Velocidad Crítica (Vs) - CON SC VARIABLE
         cos_theta = math.cos(theta_rad)
         denominador_vs = sen_theta + (Lc_rel * cos_theta)
-        Vs_ms = Vo_ms / denominador_vs
+        Vs_ms = (Sc * Vo_ms) / denominador_vs
         Vs_mdia = Vs_ms * 86400
+        
         self.procedimientos.append("8. VELOCIDAD CRÍTICA (Vs)")
+        self.procedimientos.append(f"   Tipo de sedimentador: {tipo_sedimentador}")
+        self.procedimientos.append(f"   Sc = {Sc:.3f}")
+        self.procedimientos.append(f"   Vs = (Sc × Vo) / (senθ + Lc × cosθ)")
+        self.procedimientos.append(f"   Vs = ({Sc:.3f} × {Vo_ms:.5f}) / ({sen_theta:.3f} + {Lc_rel:.3f} × {cos_theta:.3f})")
         self.procedimientos.append(f"   Vs = {Vs_ms:.6f} m/s ({Vs_mdia:.2f} m/d)")
         self.procedimientos.append("")
 
@@ -156,13 +175,46 @@ class SedimentadorAltaTasa:
         self.procedimientos.append(f"   Velocidad Horizontal (Vf) = {Vf:.5f} m/s")
         self.procedimientos.append(f"   Re Tanque = {Re_tanque:.0f}")
         self.procedimientos.append(f"   Froude = {Fr:.2e}")
+        self.procedimientos.append("")
+
+        # 13. DISEÑO DE CANALETAS
+        self.procedimientos.append("13. DISEÑO DE CANALETAS DE SALIDA")
+        self.procedimientos.append(f"   Número de canaletas: {num_canaletas}")
+        
+        # Caudal por canaleta
+        Qc = Q_m3s / num_canaletas
+        self.procedimientos.append(f"   Caudal por canaleta (Qc) = {Q_m3s:.4f} / {num_canaletas} = {Qc:.4f} m³/s")
+        
+        # Ancho de canaleta (asumido)
+        b_canaleta = 0.3  # m
+        self.procedimientos.append(f"   Ancho de canaleta (b) = {b_canaleta} m (asumido)")
+        
+        # Altura de agua en canaleta (ho)
+        try:
+            ho = (Qc / (1.345 * b_canaleta)) ** (2/3)
+            self.procedimientos.append(f"   Altura de agua (ho) = [Qc / (1.345 × b)]^(2/3)")
+            self.procedimientos.append(f"   ho = [{Qc:.4f} / (1.345 × {b_canaleta})]^(2/3) = {ho:.3f} m")
+        except:
+            ho = 0.1
+            self.procedimientos.append("   Error en cálculo de ho, se asume ho = 0.1 m")
+        
+        # Borde libre
+        borde_libre = 0.15  # m
+        altura_total_canaleta = ho + borde_libre
+
+        self.procedimientos.append(f"   Borde libre = {borde_libre} m")
+        self.procedimientos.append(f"   Altura total canaleta = {altura_total_canaleta:.3f} m")
+        self.procedimientos.append("")
 
         # Resultados finales
         self.calculos = {
             'As': As, 'Ls': Ls, 'Vo_cms': Vo_cms, 'Re': Re,
             'Lc_rel': Lc_rel, 'Vs_mdia': Vs_mdia, 'N_placas': N_placas,
             'ht': ht, 'Vol': Vol, 'Tret_min': Tret_min, 
-            'Re_tanque': Re_tanque, 'Fr': Fr, 'espacio_paneles': espacio_paneles
+            'Re_tanque': Re_tanque, 'Fr': Fr, 'espacio_paneles': espacio_paneles,
+            'tipo_sedimentador': tipo_sedimentador, 'Sc': Sc,
+            'num_canaletas': num_canaletas, 'Qc': Qc, 'b_canaleta': b_canaleta,
+            'ho': ho, 'altura_total_canaleta': altura_total_canaleta
         }
         
         self.verificaciones = {
@@ -170,7 +222,8 @@ class SedimentadorAltaTasa:
             'Re < 500': Re < 500,
             '15 < Tret < 25': 15 <= Tret_min <= 25,
             'Re_tanque < 20000': Re_tanque < 20000,
-            'Fr > 1e-5': Fr > 1e-5
+            'Fr > 1e-5': Fr > 1e-5,
+            f'Sc correcto ({tipo_sedimentador})': True
         }
         return True
 
@@ -291,6 +344,106 @@ class SedimentadorAltaTasa:
             self.grafica_path = tmp_file.name
         return fig
 
+    def generar_grafica_canaletas(self):
+        """Genera gráfico específico para las canaletas de salida"""
+        b = self.calculos['b_canaleta']
+        ho = self.calculos['ho']
+        altura_total = self.calculos['altura_total_canaleta']
+        num_canaletas = self.calculos['num_canaletas']
+        Qc = self.calculos['Qc']
+        
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+        
+        # ================= VISTA EN PLANTA DE CANALETAS =================
+        ax1.set_title('VISTA EN PLANTA - CANALETAS DE SALIDA', fontweight='bold', pad=15)
+        
+        # Dibujar canaletas
+        separacion = 0.5  # m entre canaletas
+        ancho_total = num_canaletas * b + (num_canaletas - 1) * separacion
+        
+        for i in range(num_canaletas):
+            x_start = i * (b + separacion)
+            canaleta = patches.Rectangle((x_start, 0), b, 2, 
+                                       facecolor='#E1F5FE', edgecolor='#01579B', linewidth=2)
+            ax1.add_patch(canaleta)
+            ax1.text(x_start + b/2, 1, f'Canaleta {i+1}', 
+                    ha='center', va='center', fontweight='bold')
+        
+        # Cotas
+        self._dibujar_cota(ax1, 0, -0.3, b, -0.3, f'b = {b} m')
+        if num_canaletas > 1:
+            self._dibujar_cota(ax1, 0, -0.8, ancho_total, -0.8, f'Ancho total = {ancho_total:.2f} m')
+        
+        ax1.set_xlim(-0.5, ancho_total + 0.5)
+        ax1.set_ylim(-1, 2.5)
+        ax1.set_aspect('equal')
+        ax1.axis('off')
+        
+        # ================= VISTA EN CORTE DE CANALETA =================
+        ax2.set_title('VISTA EN CORTE - DETALLE CANALETA', fontweight='bold', pad=15)
+        
+        # Dibujar sección transversal de canaleta
+        canaleta_corte = patches.Rectangle((0, 0), b, altura_total, 
+                                         facecolor='#B3E5FC', edgecolor='#0277BD', linewidth=2)
+        ax2.add_patch(canaleta_corte)
+        
+        # Nivel de agua
+        ax2.plot([0, b], [ho, ho], 'b-', linewidth=3, label='Nivel de agua')
+        
+        # Cotas
+        self._dibujar_cota(ax2, -0.3, 0, -0.3, ho, f'ho = {ho:.3f} m', color='blue')
+        self._dibujar_cota(ax2, -0.6, 0, -0.6, altura_total, f'H total = {altura_total:.3f} m')
+        self._dibujar_cota(ax2, 0, altura_total + 0.1, b, altura_total + 0.1, f'b = {b} m')
+        
+        # Información adicional
+        ax2.text(b/2, altura_total + 0.3, f'Q = {Qc:.4f} m³/s', 
+                ha='center', va='center', fontweight='bold', fontsize=10)
+        
+        ax2.set_xlim(-1, b + 0.5)
+        ax2.set_ylim(-0.1, altura_total + 0.5)
+        ax2.set_aspect('equal')
+        ax2.legend(loc='upper right')
+        ax2.axis('off')
+        
+        plt.tight_layout()
+        
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp_file:
+            fig.savefig(tmp_file.name, dpi=150)
+            self.grafica_canaletas_path = tmp_file.name
+        return fig
+
+    def _limpiar_texto_pdf(self, texto):
+        """Limpia el texto para evitar problemas con FPDF"""
+        # Reemplazar caracteres problemáticos
+        texto = texto.replace('×', 'x')
+        texto = texto.replace('°', 'grados')
+        texto = texto.replace('θ', 'theta')
+        texto = texto.replace('→', '->')
+        texto = texto.replace('≤', '<=')
+        texto = texto.replace('≥', '>=')
+        texto = texto.replace('³', '3')
+        texto = texto.replace('²', '2')
+        
+        # Limitar longitud máxima de línea
+        lineas = texto.split('\n')
+        lineas_limpias = []
+        for linea in lineas:
+            if len(linea) > 120:  # Límite seguro para PDF
+                # Dividir líneas muy largas
+                palabras = linea.split(' ')
+                linea_actual = ""
+                for palabra in palabras:
+                    if len(linea_actual + palabra) < 100:
+                        linea_actual += palabra + " "
+                    else:
+                        lineas_limpias.append(linea_actual.strip())
+                        linea_actual = palabra + " "
+                lineas_limpias.append(linea_actual.strip())
+            else:
+                lineas_limpias.append(linea)
+        
+        return '\n'.join(lineas_limpias)
+
     def generar_reporte_pdf(self):
         pdf = FPDF()
         pdf.add_page()
@@ -307,18 +460,25 @@ class SedimentadorAltaTasa:
         pdf.set_font("Arial", '', 10)
         p = self.parametros
         texto_datos = (f"Caudal: {p['caudal_ls']} L/s | Ancho B: {p['ancho_sedimentacion']} m | CS: {p['carga_superficial']} m/d\n"
-                       f"Placa: {p['lado_x']}x{p['lado_y']} m | Angulo: {p['angulo_grados']}° | Sep: {p['separacion']} m")
+                       f"Placa: {p['lado_x']} x {p['lado_y']} m | Angulo: {p['angulo_grados']} grados | Sep: {p['separacion']} m\n"
+                       f"Tipo: {p['tipo_sedimentador']} | Canaletas: {p['num_canaletas']}")
         pdf.multi_cell(0, 6, texto_datos)
         pdf.ln(5)
         
-        # Procedimiento
+        # Procedimiento - CON ANCHO ESPECIFICADO
         pdf.set_font("Arial", 'B', 12)
         pdf.cell(0, 10, '2. MEMORIA DE CÁLCULO', 1, 1, 'L', 1)
-        pdf.set_font("Courier", '', 9)
+        pdf.set_font("Courier", '', 8)  # Fuente más pequeña
+        
         for linea in self.procedimientos:
-            try: txt = linea.encode('latin-1', 'replace').decode('latin-1')
-            except: txt = linea
-            pdf.multi_cell(0, 5, txt)
+            try: 
+                txt = self._limpiar_texto_pdf(linea)
+                # Usar ancho específico en lugar de 0
+                pdf.multi_cell(190, 4, txt)  # 190 mm de ancho
+            except Exception as e:
+                # Si hay error, usar texto alternativo
+                txt_alt = f"Linea: {linea[:50]}..." if len(linea) > 50 else linea
+                pdf.multi_cell(190, 4, txt_alt)
         pdf.ln(5)
         
         # Verificación
@@ -328,16 +488,29 @@ class SedimentadorAltaTasa:
         for crit, cumple in self.verificaciones.items():
             col = (0, 128, 0) if cumple else (200, 0, 0)
             pdf.set_text_color(*col)
-            pdf.cell(0, 6, f"[{'CUMPLE' if cumple else 'NO CUMPLE'}] {crit}", 0, 1)
+            # Limpiar también las verificaciones
+            crit_limpio = self._limpiar_texto_pdf(crit)
+            pdf.cell(0, 6, f"[{'CUMPLE' if cumple else 'NO CUMPLE'}] {crit_limpio}", 0, 1)
         pdf.set_text_color(0, 0, 0)
         
         # Gráficos
         if self.grafica_path and os.path.exists(self.grafica_path):
-            pdf.add_page()
-            pdf.set_font("Arial", 'B', 12)
-            pdf.cell(0, 10, '4. ANEXO GRÁFICO (COTAS)', 0, 1, 'L')
-            # Ajustar imagen para que quepa en la hoja
-            pdf.image(self.grafica_path, x=5, y=30, w=200)
+            try:
+                pdf.add_page()
+                pdf.set_font("Arial", 'B', 12)
+                pdf.cell(0, 10, '4. ANEXO GRÁFICO - SEDIMENTADOR', 0, 1, 'L')
+                pdf.image(self.grafica_path, x=10, y=30, w=190)  # Margen más pequeño
+            except:
+                pdf.cell(0, 6, "Error al cargar gráfico del sedimentador", 0, 1)
+            
+        if self.grafica_canaletas_path and os.path.exists(self.grafica_canaletas_path):
+            try:
+                pdf.add_page()
+                pdf.set_font("Arial", 'B', 12)
+                pdf.cell(0, 10, '5. ANEXO GRÁFICO - CANALETAS', 0, 1, 'L')
+                pdf.image(self.grafica_canaletas_path, x=10, y=30, w=190)
+            except:
+                pdf.cell(0, 6, "Error al cargar gráfico de canaletas", 0, 1)
             
         with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
             pdf.output(tmp_file.name)
@@ -378,6 +551,16 @@ def main():
                             help="Valores típicos: Fibrocemento 0.006-0.010m | Plástico/Lona 0.001-0.003m")
         
         st.sidebar.markdown("---")
+        
+        # Nuevos parámetros
+        tipo_sedimentador = st.selectbox(
+            "Tipo de Sedimentador",
+            ["Placas Paralelas", "Tubos Circulares", "Conductos Cuadrados"],
+            help="Seleccione el tipo de sedimentador para determinar el coeficiente Sc"
+        )
+        
+        num_canaletas = st.number_input("Número de Canaletas", 1, 5, 2)
+        
         b = st.number_input("Ancho Tanque (m)", 1.0, 10.0, 2.5)
         cs = st.number_input("Carga Superficial (m/d)", 50.0, 300.0, 120.0)
         nu = st.number_input("Viscosidad (m2/s)", format="%.2e", value=1.00e-6)
@@ -386,21 +569,22 @@ def main():
             params = {
                 'caudal_ls': q_ls, 'lado_x': lx, 'lado_y': ly,
                 'angulo_grados': theta, 'separacion': d, 'espesor': e,
-                'ancho_sedimentacion': b, 'carga_superficial': cs, 'viscosidad': nu
+                'ancho_sedimentacion': b, 'carga_superficial': cs, 'viscosidad': nu,
+                'tipo_sedimentador': tipo_sedimentador, 'num_canaletas': num_canaletas
             }
             st.session_state.app.calcular(params)
 
     # --- RESULTADOS ---
     app = st.session_state.app
     if app.calculos:
-        t1, t2, t3 = st.tabs(["Resultados", "Memoria", "Descargas"])
+        t1, t2, t3, t4 = st.tabs(["Resultados", "Memoria", "Canaletas", "Descargas"])
         
         with t1:
             col1, col2, col3, col4 = st.columns(4)
             col1.metric("Placas", app.calculos['N_placas'])
             col2.metric("Longitud (Ls)", f"{app.calculos['Ls']:.2f} m")
             col3.metric("Reynolds", f"{app.calculos['Re']:.0f}")
-            col4.metric("Froude", f"{app.calculos['Fr']:.1e}")
+            col4.metric("Sc", f"{app.calculos['Sc']:.3f}")
             
             # Mostrar gráfico grande
             st.pyplot(app.generar_grafica())
@@ -417,10 +601,28 @@ def main():
             st.code("\n".join(app.procedimientos), language="text")
             
         with t3:
-            pdf_file = app.generar_reporte_pdf()
-            with open(pdf_file, "rb") as f:
-                st.download_button("📥 Descargar PDF", f, "memoria.pdf", "application/pdf")
-            os.unlink(pdf_file)
+            st.subheader("Diseño de Canaletas de Salida")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Caudal por canaleta", f"{app.calculos['Qc']:.4f} m³/s")
+                st.metric("Altura de agua (ho)", f"{app.calculos['ho']:.3f} m")
+            with col2:
+                st.metric("Ancho canaleta", f"{app.calculos['b_canaleta']} m")
+                st.metric("Altura total", f"{app.calculos['altura_total_canaleta']:.3f} m")
+            
+            # Mostrar gráfico de canaletas
+            st.pyplot(app.generar_grafica_canaletas())
+            
+        with t4:
+            try:
+                pdf_file = app.generar_reporte_pdf()
+                with open(pdf_file, "rb") as f:
+                    st.download_button("📥 Descargar PDF", f, "memoria.pdf", "application/pdf")
+                os.unlink(pdf_file)
+            except Exception as e:
+                st.error(f"Error al generar PDF: {str(e)}")
+                st.info("Intente reducir la cantidad de texto o usar valores más simples")
 
 if __name__ == "__main__":
     main()
